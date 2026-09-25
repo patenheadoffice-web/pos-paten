@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>F&B POS & ERP System</title>
+  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  
+  <style>
+    body { background-color: #f4f6f9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    #loginScreen {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: #1e242b; z-index: 99999; display: flex; align-items: center; justify-content: center;
+    }
+    .card-menu { cursor: pointer; transition: transform 0.15s ease; border-radius: 10px; }
+    .card-menu:hover { transform: translateY(-3px); }
+    .cart-box { background: #fff; border-radius: 12px; height: calc(100vh - 170px); display: flex; flex-direction: column; }
+    .cart-items { flex-grow: 1; overflow-y: auto; }
+    .btn-suggestion { font-size: 0.85rem; font-weight: 600; padding: 6px 10px; }
+    .printer-card { border-radius: 10px; border: 1px solid #dee2e6; padding: 12px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+
+  <!-- ================= OVERLAY LOGIN ================= -->
+  <div id="loginScreen">
+    <div class="card p-4 shadow-lg border-0" style="max-width: 380px; width: 90%;">
+      <div class="text-center mb-3">
+        <i class="bi bi-shield-lock-fill text-primary" style="font-size: 3rem;"></i>
+        <h4 class="fw-bold mt-2">Login F&B POS</h4>
+        <small class="text-muted">Masukkan ID & Password</small>
+      </div>
+      <div>
+        <div class="mb-3">
+          <label class="form-label small fw-bold">ID Pengguna</label>
+          <input type="text" id="loginId" class="form-control" placeholder="ID User" autofocus>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-bold">Password</label>
+          <input type="password" id="loginPass" class="form-control" placeholder="••••••" onkeydown="if(event.key === 'Enter') handleLogin()">
+        </div>
+        <div id="loginStatus" class="small mb-2 text-center" style="display:none;"></div>
+        <button type="button" id="btnLogin" class="btn btn-primary w-100 fw-bold py-2" onclick="handleLogin()">
+          Masuk ke Sistem
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= NAVBAR ================= -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark px-3 py-2 shadow-sm">
+    <div class="container-fluid">
+      <span class="navbar-brand fw-bold me-3">
+        <i class="bi bi-cup-hot-fill text-warning me-2"></i> POS Resto
+      </span>
+      
+      <ul class="nav nav-pills me-auto" id="mainTab" role="tablist">
+        <li class="nav-item">
+          <button class="nav-link active text-white" id="tabPosBtn" data-bs-toggle="pill" data-bs-target="#tab-pos" type="button">
+            <i class="bi bi-cart3"></i> Kasir (POS)
+          </button>
+        </li>
+        <li class="nav-item ms-2">
+          <button class="btn btn-outline-info text-white btn-sm py-2 px-3 fw-bold" type="button" onclick="bukaRiwayatShift()">
+            <i class="bi bi-clock-history me-1 text-info"></i> Riwayat Shift
+          </button>
+        </li>
+        <li class="nav-item role-admin ms-2" style="display:none;">
+          <button class="nav-link text-white" data-bs-toggle="pill" data-bs-target="#tab-realtime" type="button" onclick="loadRealtimeData()">
+            <i class="bi bi-activity"></i> Live Monitor
+          </button>
+        </li>
+        <li class="nav-item role-admin" style="display:none;">
+          <button class="nav-link text-white" data-bs-toggle="pill" data-bs-target="#tab-bahan" type="button" onclick="muatDataBahan()">
+            <i class="bi bi-box-seam"></i> Bahan Masuk
+          </button>
+        </li>
+        <li class="nav-item role-admin" style="display:none;">
+          <button class="nav-link text-white" data-bs-toggle="pill" data-bs-target="#tab-menu" type="button" onclick="muatDaftarMenuKelola()">
+            <i class="bi bi-journal-plus"></i> Kelola Menu
+          </button>
+        </li>
+        <li class="nav-item role-admin" style="display:none;">
+          <button class="nav-link text-white" data-bs-toggle="pill" data-bs-target="#tab-report" type="button">
+            <i class="bi bi-file-earmark-bar-graph"></i> Laporan Sales
+          </button>
+        </li>
+      </ul>
+
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-outline-light btn-sm" onclick="bukaSettingPrinter()">
+          <i class="bi bi-printer"></i> Setting Printer
+        </button>
+        <button id="btnEOD" class="btn btn-outline-danger btn-sm" style="display:none;" onclick="bukaModalEOD()">
+          <i class="bi bi-door-closed"></i> Tutup Shift (EOD)
+        </button>
+        <div class="text-light ms-2 text-end">
+          <div class="fw-bold small" id="userBadgeNama">--</div>
+          <span class="badge bg-secondary" id="userBadgeRole">--</span>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary ms-2" onclick="location.reload()" title="Logout">
+          <i class="bi bi-box-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ================= KONTEN UTAMA ================= -->
+  <div class="container-fluid p-3">
+    <div class="tab-content" id="mainTabContent">
+      
+      <!-- 1. KASIR (POS) -->
+      <div class="tab-pane fade show active" id="tab-pos" role="tabpanel">
+        <div id="alertBOD" class="alert alert-warning d-flex justify-content-between align-items-center shadow-sm" style="display:none;">
+          <div>
+            <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i> 
+            <strong>Shift Belum Dibuka!</strong> Wajib input kas awal sebelum transaksi kasir.
+          </div>
+          <button class="btn btn-dark fw-bold btn-sm" onclick="bukaModalBOD()">Input Kas Awal (BOD)</button>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-lg-8">
+            <div class="d-flex justify-content-between mb-3">
+              <h5 class="fw-bold mb-0">Katalog Menu</h5>
+              <input type="text" id="cariMenu" class="form-control w-50" placeholder="Ketik nama menu..." onkeyup="filterMenu()">
+            </div>
+            <div class="row g-2" id="gridMenu"></div>
+          </div>
+          
+          <div class="col-lg-4">
+            <div class="cart-box p-3 shadow-sm">
+              <div class="d-flex justify-content-between align-items-center border-bottom pb-2">
+                <h5 class="fw-bold mb-0">Pesanan</h5>
+                <button class="btn btn-sm btn-outline-danger py-0" onclick="kosongkanCart()">Reset</button>
+              </div>
+
+              <!-- Input Nama Pelanggan / Customer (Self-Service) -->
+              <div class="mt-2 mb-2">
+                <label class="form-label small fw-bold text-muted mb-1"><i class="bi bi-person me-1"></i> Nama Customer (Label Cup):</label>
+                <input type="text" id="inputNamaCustomer" class="form-control form-control-sm" placeholder="Contoh: Kak Budi / Meja 04">
+              </div>
+
+              <div class="cart-items py-2 border-top" id="listKeranjang"></div>
+              <div class="border-top pt-2">
+                <div class="d-flex justify-content-between small"><span>Subtotal:</span><b id="subtotalVal">Rp 0</b></div>
+                <div class="d-flex justify-content-between small"><span>PB1 (10%):</span><b id="pajakVal">Rp 0</b></div>
+                <div class="d-flex justify-content-between fs-5 text-primary my-2"><span>Total Tagihan:</span><b id="totalVal">Rp 0</b></div>
+                
+                <button class="btn btn-success w-100 fw-bold py-2 fs-5" id="btnCheckout" onclick="bukaModalPembayaran()" disabled>
+                  Pilih Pembayaran & Bayar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. LIVE MONITORING (ADMIN) -->
+      <div class="tab-pane fade" id="tab-realtime" role="tabpanel">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4 class="fw-bold mb-0"><i class="bi bi-speedometer2 text-primary me-2"></i> Live Sales & Shift Monitor</h4>
+          <button class="btn btn-outline-primary btn-sm" onclick="loadRealtimeData()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+        </div>
+
+        <div class="row g-3 mb-4">
+          <div class="col-md-3"><div class="card p-3 border-0 shadow-sm bg-white border-start border-primary border-4"><span class="text-muted small">Omzet Hari Ini</span><h3 class="fw-bold text-dark mt-1" id="rtOmzet">Rp 0</h3></div></div>
+          <div class="col-md-3"><div class="card p-3 border-0 shadow-sm bg-white border-start border-success border-4"><span class="text-muted small">Penerimaan Kas (Tunai)</span><h3 class="fw-bold text-success mt-1" id="rtTunai">Rp 0</h3></div></div>
+          <div class="col-md-3"><div class="card p-3 border-0 shadow-sm bg-white border-start border-info border-4"><span class="text-muted small">Penerimaan Digital</span><h3 class="fw-bold text-info mt-1" id="rtNonTunai">Rp 0</h3></div></div>
+          <div class="col-md-3"><div class="card p-3 border-0 shadow-sm bg-white border-start border-secondary border-4"><span class="text-muted small">Struk Selesai</span><h3 class="fw-bold text-secondary mt-1" id="rtTrx">0</h3></div></div>
+        </div>
+
+        <div class="card border-0 shadow-sm p-3">
+          <h5 class="fw-bold"><i class="bi bi-person-badge text-warning me-2"></i> Kasir Sedang Aktif (Shift OPEN)</h5>
+          <div class="table-responsive mt-2">
+            <table class="table table-hover align-middle">
+              <thead class="table-light"><tr><th>ID Shift</th><th>Nama Kasir</th><th>Jam Mulai (BOD)</th><th>Modal Kas Awal</th><th>Status</th></tr></thead>
+              <tbody id="listShiftAktif"><tr><td colspan="5" class="text-center text-muted">Memuat data shift...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. BAHAN MASUK -->
+      <div class="tab-pane fade" id="tab-bahan" role="tabpanel">
+        <div class="row justify-content-center">
+          <div class="col-md-8 col-lg-6">
+            <div class="card shadow-sm p-4 border-0">
+              <h5 class="fw-bold mb-3"><i class="bi bi-box-arrow-in-down text-primary me-2"></i> Input Stok Bahan Masuk</h5>
+              <form id="formBahanMasuk" onsubmit="submitBahanMasuk(event)">
+                <div class="mb-3">
+                  <label class="form-label">Pilih Bahan Baku</label>
+                  <select class="form-select" id="pilihBahan" required onchange="cekBahanBaru(this.value)">
+                    <option value="">-- Pilih Bahan --</option>
+                    <option value="BARU">+ Tambah Bahan Baru</option>
+                  </select>
+                </div>
+                <div id="boxBahanBaru" style="display:none;" class="p-3 mb-3 bg-light rounded border">
+                  <label class="form-label">Nama Bahan Baru</label>
+                  <input type="text" class="form-control mb-2" id="namaBahanBaru" placeholder="Contoh: Fresh Milk 1L">
+                  <label class="form-label">Satuan</label>
+                  <input type="text" class="form-control" id="satuanBahanBaru" placeholder="Contoh: ml, gram, pcs">
+                </div>
+                <div class="row g-2 mb-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Jumlah / Qty Masuk</label>
+                    <input type="number" step="any" class="form-control" id="qtyBahan" required placeholder="0">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Total Belanja (Rp)</label>
+                    <input type="number" class="form-control" id="biayaBahan" required placeholder="100000">
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Metode Pembayaran</label>
+                  <select class="form-select" id="metodeBayarBahan">
+                    <option value="CASH">Kas Tunai Toko</option>
+                    <option value="TEMPO">Hutang Supplier (Tempo)</option>
+                  </select>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 fw-bold">Simpan & Perbarui Stok</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. KELOLA MENU & HPP -->
+      <div class="tab-pane fade" id="tab-menu" role="tabpanel">
+        <div class="row g-4">
+          <div class="col-md-5">
+            <div class="card shadow-sm p-4 border-0">
+              <h5 class="fw-bold mb-3">Tambah Menu Baru</h5>
+              <form id="formMenu" onsubmit="submitMenuBaru(event)">
+                <div class="mb-2"><label class="form-label">Nama Menu</label><input type="text" class="form-control" id="mNama" required placeholder="Contoh: Espresso Ice"></div>
+                <div class="mb-2"><label class="form-label">Kategori</label>
+                  <select class="form-select" id="mKategori">
+                    <option value="COFFEE">COFFEE</option><option value="NON - COFFEE">NON - COFFEE</option><option value="MINERAL WATER">MINERAL WATER</option><option value="SIGNATURE">SIGNATURE</option><option value="VARIOUS TEA">VARIOUS TEA</option><option value="SNACK">SNACK</option><option value="FRIED RICE">FRIED RICE</option><option value="GD-NUSANTARA">GD-NUSANTARA</option><option value="PASTRY">PASTRY</option>
+                  </select>
+                </div>
+                <div class="mb-2"><label class="form-label">Harga Jual Konsumen (Rp)</label><input type="number" class="form-control" id="mHarga" required placeholder="20000"></div>
+                <div class="mb-3"><label class="form-label">Estimasi HPP Per Porsi (Rp)</label><input type="number" class="form-control" id="mHPP" required placeholder="6500"></div>
+                <button type="submit" class="btn btn-success w-100 fw-bold">Simpan Menu</button>
+              </form>
+            </div>
+          </div>
+          <div class="col-md-7">
+            <div class="card shadow-sm p-3 border-0">
+              <h5 class="fw-bold mb-2">Daftar Menu & Margin</h5>
+              <div class="table-responsive"><table class="table table-hover align-middle" id="tableListMenu"><thead class="table-light"><tr><th>Nama</th><th>Kategori</th><th>Harga</th><th>HPP</th><th>Margin</th></tr></thead><tbody></tbody></table></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. LAPORAN & EKSPOR -->
+      <div class="tab-pane fade" id="tab-report" role="tabpanel">
+        <div class="card shadow-sm p-3 border-0 mb-3">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-3"><label class="form-label small fw-bold">Dari Tanggal</label><input type="date" class="form-control" id="repStart"></div>
+            <div class="col-md-3"><label class="form-label small fw-bold">Sampai Tanggal</label><input type="date" class="form-control" id="repEnd"></div>
+            <div class="col-md-2"><button class="btn btn-primary w-100" onclick="tarikLaporan()"><i class="bi bi-search"></i> Filter</button></div>
+            <div class="col-md-4 text-end">
+              <button class="btn btn-outline-success me-1" onclick="exportToExcel()"><i class="bi bi-file-earmark-excel"></i> Excel</button>
+              <button class="btn btn-outline-danger" onclick="exportToPDF()"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-3"><div class="card p-3 border-0 shadow-sm"><span class="small text-muted">Penjualan Bersih</span><h4 class="fw-bold text-dark mt-1" id="sumOmzet">Rp 0</h4></div></div>
+          <div class="col-md-3"><div class="card p-3 border-0 shadow-sm"><span class="small text-muted">Total HPP</span><h4 class="fw-bold text-danger mt-1" id="sumHPP">Rp 0</h4></div></div>
+          <div class="col-md-3"><div class="card p-3 border-0 shadow-sm"><span class="small text-muted">Laba Kotor</span><h4 class="fw-bold text-success mt-1" id="sumLaba">Rp 0</h4></div></div>
+          <div class="col-md-3"><div class="card p-3 border-0 shadow-sm"><span class="small text-muted">Titipan PB1 (10%)</span><h4 class="fw-bold text-secondary mt-1" id="sumPajak">Rp 0</h4></div></div>
+        </div>
+
+        <div class="card shadow-sm p-3 border-0 bg-white" id="printArea">
+          <table class="table table-bordered table-striped" id="tableReport"><thead class="table-dark"><tr><th>Invoice</th><th>Tanggal</th><th>Metode</th><th>Subtotal</th><th>PB1</th><th>Total</th><th>HPP</th><th>Laba Kotor</th></tr></thead><tbody id="bodyReport"><tr><td colspan="8" class="text-center text-muted">Silakan tentukan tanggal dan klik Filter.</td></tr></tbody></table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= MODAL PEMBAYARAN, REKOMENDASI UANG & SPLIT ================= -->
+  <div class="modal fade" id="modalPayment" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title fw-bold"><i class="bi bi-wallet2 me-2"></i> Pembayaran Kasir</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="text-center mb-3">
+            <small class="text-muted">Total Tagihan:</small>
+            <h2 class="fw-bold text-primary mb-0" id="modalPayGrandTotal">Rp 0</h2>
+          </div>
+
+          <div class="d-flex justify-content-center gap-3 mb-3">
+            <div class="form-check"><input class="form-check-input" type="radio" name="payType" id="typeSingle" value="SINGLE" checked onchange="togglePayType()"><label class="form-check-label fw-bold" for="typeSingle">Satu Metode</label></div>
+            <div class="form-check"><input class="form-check-input" type="radio" name="payType" id="typeSplit" value="SPLIT" onchange="togglePayType()"><label class="form-check-label fw-bold text-danger" for="typeSplit"><i class="bi bi-diagram-2"></i> Split Bayar</label></div>
+          </div>
+
+          <!-- Pembayaran Tunggal -->
+          <div id="boxSinglePayment">
+            <label class="form-label small fw-bold">Pilih Channel Pembayaran</label>
+            <div class="btn-group w-100 mb-3">
+              <input type="radio" class="btn-check" name="singleMethod" id="smCash" value="CASH" checked onchange="toggleCashInput()"><label class="btn btn-outline-secondary" for="smCash"><i class="bi bi-cash me-1"></i> Tunai (Cash)</label>
+              <input type="radio" class="btn-check" name="singleMethod" id="smQRIS" value="QRIS" onchange="toggleCashInput()"><label class="btn btn-outline-secondary" for="smQRIS"><i class="bi bi-qr-code me-1"></i> QRIS</label>
+              <input type="radio" class="btn-check" name="singleMethod" id="smEDC" value="EDC" onchange="toggleCashInput()"><label class="btn btn-outline-secondary" for="smEDC"><i class="bi bi-credit-card me-1"></i> EDC</label>
+            </div>
+
+            <!-- Rekomendasi Uang Tunai & Kembalian -->
+            <div id="sectionCashDetail" class="p-3 bg-light rounded border mb-3">
+              <label class="form-label small fw-bold mb-1">Rekomendasi Pecahan Uang:</label>
+              <div id="containerSaranUang" class="d-flex flex-wrap gap-2 mb-3"></div>
+              <div class="mb-2">
+                <label class="form-label small fw-bold">Uang Diterima (Rp):</label>
+                <input type="number" id="inputUangDiterima" class="form-control form-control-lg fw-bold" placeholder="Ketik nominal..." oninput="hitungKembalian()">
+              </div>
+              <div class="p-2 rounded bg-white border text-center">
+                <small class="text-muted d-block">Kembalian:</small>
+                <h4 class="fw-bold mb-0 text-success" id="labelKembalian">Rp 0</h4>
+              </div>
+            </div>
+          </div>
+
+          <!-- Split Pembayaran -->
+          <div id="boxSplitPayment" style="display:none;" class="p-3 bg-light rounded border mb-3">
+            <h6 class="fw-bold text-dark mb-2 border-bottom pb-1">Bagi 2 Metode Pembayaran:</h6>
+            <div class="row g-2 mb-2">
+              <div class="col-5"><label class="form-label small">Metode 1</label><select id="splitMetode1" class="form-select form-select-sm"><option value="CASH">Tunai (Cash)</option><option value="QRIS">QRIS</option><option value="EDC">EDC</option></select></div>
+              <div class="col-7"><label class="form-label small">Nominal Bayar 1 (Rp)</label><input type="number" id="splitNominal1" class="form-control form-control-sm" placeholder="Contoh: 50000" oninput="hitungSisaSplit()"></div>
+            </div>
+            <div class="row g-2">
+              <div class="col-5"><label class="form-label small">Metode 2</label><select id="splitMetode2" class="form-select form-select-sm"><option value="QRIS">QRIS</option><option value="EDC">EDC</option><option value="CASH">Tunai (Cash)</option></select></div>
+              <div class="col-7"><label class="form-label small">Sisa Nominal 2 (Rp)</label><input type="number" id="splitNominal2" class="form-control form-control-sm bg-white" readonly></div>
+            </div>
+            <div class="small text-muted mt-2" id="splitStatusInfo"></div>
+          </div>
+
+          <button type="button" id="btnProsesBayarFinal" class="btn btn-success w-100 py-3 fw-bold fs-5 shadow-sm" onclick="eksekusiCheckoutFinal()">
+            Konfirmasi, Cetak Struk & Label
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL RIWAYAT SHIFT BERJALAN ================= -->
+  <div class="modal fade" id="modalRiwayatShift" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-dark text-white"><h5 class="modal-title fw-bold"><i class="bi bi-clock-history me-2"></i> Riwayat Transaksi Shift Berjalan</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body p-3">
+          <div class="row g-2 mb-3">
+            <div class="col-4"><div class="p-2 border rounded bg-light text-center"><small class="text-muted d-block">Total Transaksi</small><b class="text-primary fs-5" id="histShiftTotal">Rp 0</b></div></div>
+            <div class="col-4"><div class="p-2 border rounded bg-light text-center"><small class="text-muted d-block">Porsi Tunai (Kas)</small><b class="text-success fs-5" id="histShiftTunai">Rp 0</b></div></div>
+            <div class="col-4"><div class="p-2 border rounded bg-light text-center"><small class="text-muted d-block">Porsi Non-Tunai</small><b class="text-info fs-5" id="histShiftNonTunai">Rp 0</b></div></div>
+          </div>
+          <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+            <table class="table table-sm table-hover align-middle"><thead class="table-light sticky-top"><tr><th>Jam</th><th>Invoice</th><th>Metode Bayar</th><th>Total</th></tr></thead><tbody id="tbodyRiwayatShift"><tr><td colspan="4" class="text-center text-muted">Memuat data transaksi...</td></tr></tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL SETTING DUAL-PRINTER (STRUK & LABEL STIKER) ================= -->
+  <div class="modal fade" id="modalPrinter" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header bg-dark text-white"><h5 class="modal-title fw-bold"><i class="bi bi-bluetooth me-2 text-primary"></i> Setting Dual-Printer Bluetooth</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <!-- 1. KONEKSI PRINTER STRUK -->
+          <div class="printer-card bg-light">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="fw-bold"><i class="bi bi-receipt me-1 text-primary"></i> 1. Printer Struk Pembayaran</span>
+              <span class="badge bg-secondary" id="badgeStatusStruk">Terputus</span>
+            </div>
+            <small class="text-muted d-block mb-2" id="infoDeviceStruk">Printer nota kasir</small>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-primary btn-sm fw-bold w-100" onclick="hubungkanPrinter('STRUK')"><i class="bi bi-search me-1"></i> Hubungkan Printer Struk</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="btnPutusStruk" style="display:none;" onclick="putusPrinter('STRUK')">Putus</button>
+            </div>
+          </div>
+
+          <!-- 2. KONEKSI PRINTER LABEL STIKER -->
+          <div class="printer-card bg-light">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="fw-bold"><i class="bi bi-tag-fill me-1 text-warning"></i> 2. Printer Label Stiker Cup (PT-260)</span>
+              <span class="badge bg-secondary" id="badgeStatusLabel">Terputus</span>
+            </div>
+            <small class="text-muted d-block mb-2" id="infoDeviceLabel">Printer label stiker untuk ditempelkan pada cup</small>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-warning btn-sm fw-bold w-100 text-dark" onclick="hubungkanPrinter('LABEL')"><i class="bi bi-search me-1"></i> Hubungkan Printer Label</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="btnPutusLabel" style="display:none;" onclick="putusPrinter('LABEL')">Putus</button>
+            </div>
+          </div>
+
+          <div class="mb-2 mt-3"><label class="form-label small fw-bold">Nama Toko / Resto</label><input type="text" id="cfgStoreName" class="form-control" value="RESTO NUSANTARA"></div>
+          <div class="mb-2"><label class="form-label small fw-bold">Alamat Toko</label><input type="text" id="cfgStoreAddress" class="form-control" value="Jl. Protokol No. 10"></div>
+          <div class="mb-2"><label class="form-label small fw-bold">Pesan Footer Struk</label><input type="text" id="cfgStoreFooter" class="form-control" value="Terima Kasih Atas Kunjungan Anda!"></div>
+          <div class="mb-3"><label class="form-label small fw-bold">Lebar Karakter Kertas Struk</label><select id="cfgPaperWidth" class="form-select"><option value="32">Thermal 58mm (32 Karakter)</option><option value="48">Thermal 80mm (48 Karakter)</option></select></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-primary w-100" onclick="simpanSettingPrinter()">Simpan Pengaturan</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pustaka JavaScript -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <script>
+    // =========================================================================
+    // URL BACKEND GOOGLE APPS SCRIPT
+    // =========================================================================
+    const API_URL = "https://script.google.com/macros/s/AKfycbxP0F-P5caE8qZiRhNw-m5jIjSNGZhSVioR5TL-Iwr-tx1H9oHLZqlg6Bdv7IVDXfQxEg/exec"; // <-- Tempel URL /exec Anda di sini
+
+    async function apiCall(action, data = {}) {
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify({ action: action, data: data })
+        });
+        return await response.json();
+      } catch (err) {
+        throw new Error("Gagal menghubungi server database: " + err.message);
+      }
+    }
+
+    let currentUser = null;
+    let currentShift = null;
+    let masterMenu = [];
+    let keranjang = [];
+    let currentReportData = [];
+
+    // Variabel Bluetooth Dual-Printer
+    let btStrukDevice = null, btStrukChar = null;
+    let btLabelDevice = null, btLabelChar = null;
+
+    // UUID Standar untuk BLE Thermal POS & Label PT-260
+    const BLE_SERVICES = [
+      "000018f0-0000-1000-8000-00805f9b34fb",
+      "49535343-fe7d-4158-9d10-f3874e728127",
+      "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
+      "0000ff00-0000-1000-8000-00805f9b34fb"
+    ];
+
+    const formatRp = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+    const formatNumberOnly = (n) => new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(n);
+
+    window.onload = function() {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('repStart').value = today;
+      document.getElementById('repEnd').value = today;
+      muatKatalogPOS();
+      muatPengaturanPrinter();
+    };
+
+    // 1. LOGIN HANDLER
+    async function handleLogin() {
+      const id = document.getElementById('loginId').value.trim();
+      const pass = document.getElementById('loginPass').value.trim();
+      const btn = document.getElementById('btnLogin');
+      const feedback = document.getElementById('loginStatus');
+
+      if (!id || !pass) {
+        feedback.style.display = 'block'; feedback.className = 'small mb-2 text-center text-danger';
+        feedback.innerText = 'ID dan Password wajib diisi!'; return;
+      }
+
+      btn.disabled = true; btn.innerText = 'Memverifikasi...';
+      feedback.style.display = 'block'; feedback.className = 'small mb-2 text-center text-primary';
+      feedback.innerText = 'Menghubungkan ke database Google Sheets...';
+
+      try {
+        const res = await apiCall("loginUser", { id: id, pass: pass });
+        btn.disabled = false; btn.innerText = 'Masuk ke Sistem';
+
+        if (res && res.success) {
+          currentUser = res.user;
+          document.getElementById('loginScreen').style.setProperty('display', 'none', 'important');
+          document.getElementById('userBadgeNama').innerText = currentUser.nama;
+          document.getElementById('userBadgeRole').innerText = currentUser.role.toUpperCase();
+
+          if (currentUser.role === 'kasir') {
+            document.querySelectorAll('.role-admin').forEach(el => el.style.setProperty('display', 'none', 'important'));
+            document.getElementById('btnEOD').style.setProperty('display', 'inline-block', 'important');
+            cekStatusShiftKasir();
+          } else {
+            document.querySelectorAll('.role-admin').forEach(el => el.style.setProperty('display', 'inline-block', 'important'));
+            document.getElementById('alertBOD').style.setProperty('display', 'none', 'important');
+            document.getElementById('btnEOD').style.setProperty('display', 'none', 'important');
+            document.getElementById('btnCheckout').disabled = false;
+          }
+        } else {
+          feedback.className = 'small mb-2 text-center text-danger';
+          feedback.innerText = res ? res.message : 'ID atau Password salah.';
+        }
+      } catch (err) {
+        btn.disabled = false; btn.innerText = 'Masuk ke Sistem';
+        feedback.className = 'small mb-2 text-center text-danger'; feedback.innerText = err.message;
+      }
+    }
+
+    // 2. SHIFT KASIR (BOD, EOD & RIWAYAT)
+    async function cekStatusShiftKasir() {
+      try {
+        const res = await apiCall("cekShiftKasir", { idKasir: currentUser.id });
+        if (res.hasOpenShift) {
+          currentShift = res.shift;
+          document.getElementById('alertBOD').style.setProperty('display', 'none', 'important');
+          document.getElementById('btnCheckout').disabled = keranjang.length === 0;
+        } else {
+          currentShift = null;
+          document.getElementById('alertBOD').style.setProperty('display', 'flex', 'important');
+          document.getElementById('btnCheckout').disabled = true;
+        }
+      } catch (e) {}
+    }
+
+    function bukaModalBOD() {
+      Swal.fire({
+        title: 'Begin of Day (Kas Awal)',
+        input: 'number',
+        inputLabel: 'Masukkan Modal Kas Awal di Laci Kasir (Rp):',
+        inputPlaceholder: 'Contoh: 100000',
+        showCancelButton: true,
+        confirmButtonText: 'Buka Shift',
+        inputValidator: (v) => { if (!v || v < 0) return 'Nominal kas awal wajib diisi!'; }
+      }).then(async r => {
+        if (r.isConfirmed) {
+          Swal.fire({ title: 'Menyimpan...', didOpen: () => Swal.showLoading() });
+          const res = await apiCall("prosesBOD", { idKasir: currentUser.id, namaKasir: currentUser.nama, kasAwal: r.value });
+          currentShift = { idShift: res.idShift, kasAwal: res.kasAwal };
+          document.getElementById('alertBOD').style.setProperty('display', 'none', 'important');
+          Swal.fire('Shift Dibuka', `Kas awal ${formatRp(res.kasAwal)} tercatat.`, 'success');
+        }
+      });
+    }
+
+    function bukaModalEOD() {
+      if (!currentShift) return Swal.fire('Info', 'Tidak ada shift yang aktif.', 'info');
+      Swal.fire({
+        title: 'Tutup Shift (Settlement / EOD)',
+        input: 'number',
+        inputLabel: 'Hitung dan masukkan Total Fisik Uang di Laci (Rp):',
+        inputPlaceholder: 'Contoh: 850000',
+        showCancelButton: true,
+        confirmButtonText: 'Tutup Shift & Cetak',
+        confirmButtonColor: '#dc3545',
+        inputValidator: (v) => { if (!v) return 'Harap hitung fisik uang kas!'; }
+      }).then(async r => {
+        if (r.isConfirmed) {
+          Swal.fire({ title: 'Menghitung Settlement...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+          const res = await apiCall("prosesEOD", { idShift: currentShift.idShift, fisikKasAkhir: r.value });
+          if (res.success) {
+            cetakStrukEOD(res.report);
+            Swal.fire('Shift Ditutup', 'Struk Settlement telah dicetak.', 'success').then(() => location.reload());
+          } else {
+            Swal.fire('Eror', res.message, 'error');
+          }
+        }
+      });
+    }
+
+    async function bukaRiwayatShift() {
+      const idShift = currentShift ? currentShift.idShift : "";
+      new bootstrap.Modal(document.getElementById('modalRiwayatShift')).show();
+      const tbody = document.getElementById('tbodyRiwayatShift');
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted"><div class="spinner-border spinner-border-sm me-2"></div>Memuat...</td></tr>';
+
+      try {
+        const res = await apiCall("getRiwayatShiftBerjalan", { idShift: idShift });
+        document.getElementById('histShiftTotal').innerText = formatRp(res.totalSales || 0);
+        document.getElementById('histShiftTunai').innerText = formatRp(res.totalTunai || 0);
+        document.getElementById('histShiftNonTunai').innerText = formatRp(res.totalNonTunai || 0);
+
+        tbody.innerHTML = '';
+        if (!res.data || res.data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Belum ada transaksi di shift ini.</td></tr>';
+          return;
+        }
+        res.data.forEach(item => {
+          tbody.innerHTML += `<tr><td><small class="text-muted">${item.waktu}</small></td><td><b>${item.invoice}</b></td><td><span class="badge bg-secondary">${item.metode}</span></td><td class="fw-bold">${formatRp(item.total)}</td></tr>`;
+        });
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">${err.message}</td></tr>`;
+      }
+    }
+
+    // 3. DUAL-PRINTER BLUETOOTH DRIVER (MURNI TANPA BLOKIR IFRAME)
+    async function hubungkanPrinter(tipe) {
+      if (!navigator.bluetooth) {
+        Swal.fire('Browser Tidak Mendukung', 'Web Bluetooth hanya jalan di Google Chrome atau Microsoft Edge.', 'error');
+        return;
+      }
+
+      try {
+        Swal.fire({ title: `Mencari Printer ${tipe}...`, text: `Pilih perangkat Bluetooth untuk Printer ${tipe}`, allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: BLE_SERVICES
+        });
+
+        const server = await device.gatt.connect();
+
+        let service = null;
+        for (const sId of BLE_SERVICES) {
+          try { service = await server.getPrimaryService(sId); if (service) break; } catch (e) {}
+        }
+
+        if (!service) {
+          const services = await server.getPrimaryServices();
+          if (services.length > 0) service = services[0];
+        }
+
+        const characteristics = await service.getCharacteristics();
+        let targetChar = null;
+        for (const c of characteristics) {
+          if (c.properties.write || c.properties.writeWithoutResponse) { targetChar = c; break; }
+        }
+
+        if (!targetChar) throw new Error("Karakteristik write printer tidak ditemukan.");
+
+        if (tipe === 'STRUK') {
+          btStrukDevice = device; btStrukChar = targetChar;
+          btStrukDevice.addEventListener('gattserverdisconnected', () => onDeviceDisconnected('STRUK'));
+          updatePrinterUI('STRUK', true, device.name);
+        } else {
+          btLabelDevice = device; btLabelChar = targetChar;
+          btLabelDevice.addEventListener('gattserverdisconnected', () => onDeviceDisconnected('LABEL'));
+          updatePrinterUI('LABEL', true, device.name);
+        }
+
+        Swal.close();
+        Swal.fire('Terhubung!', `Printer ${tipe} tersambung: ${device.name}`, 'success');
+      } catch (err) {
+        Swal.close();
+        if (err.name !== 'NotFoundError') Swal.fire('Gagal Menghubungkan', err.message, 'error');
+      }
+    }
+
+    function onDeviceDisconnected(tipe) {
+      if (tipe === 'STRUK') { btStrukChar = null; updatePrinterUI('STRUK', false); }
+      else { btLabelChar = null; updatePrinterUI('LABEL', false); }
+      Swal.fire('Terputus', `Printer ${tipe} terputus.`, 'warning');
+    }
+
+    function putusPrinter(tipe) {
+      if (tipe === 'STRUK' && btStrukDevice && btStrukDevice.gatt.connected) btStrukDevice.gatt.disconnect();
+      else if (tipe === 'LABEL' && btLabelDevice && btLabelDevice.gatt.connected) btLabelDevice.gatt.disconnect();
+      onDeviceDisconnected(tipe);
+    }
+
+    function updatePrinterUI(tipe, isConnected, deviceName = "") {
+      const badge = document.getElementById(tipe === 'STRUK' ? 'badgeStatusStruk' : 'badgeStatusLabel');
+      const info = document.getElementById(tipe === 'STRUK' ? 'infoDeviceStruk' : 'infoDeviceLabel');
+      const btnPutus = document.getElementById(tipe === 'STRUK' ? 'btnPutusStruk' : 'btnPutusLabel');
+
+      if (isConnected) {
+        badge.className = "badge bg-success"; badge.innerText = "Terhubung";
+        info.innerText = `Perangkat: ${deviceName}`; btnPutus.style.display = "inline-block";
+      } else {
+        badge.className = "badge bg-secondary"; badge.innerText = "Terputus";
+        info.innerText = tipe === 'STRUK' ? "Printer nota transaksi kasir" : "Printer stiker untuk cup (PT-260)";
+        btnPutus.style.display = "none";
+      }
+    }
+
+    async function kirimBytesKeChar(characteristic, bytes) {
+      if (!characteristic) return;
+      const chunkSize = 50;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.slice(i, i + chunkSize);
+        await characteristic.writeValue(chunk);
+        await new Promise(r => setTimeout(r, 20));
+      }
+    }
+
+    function formatLine(leftText, rightText, maxChars = 32) {
+      const spaceLen = maxChars - leftText.length - rightText.length;
+      return (spaceLen > 0) ? (leftText + " ".repeat(spaceLen) + rightText + "\n") : (leftText + " " + rightText + "\n");
+    }
+
+    function muatPengaturanPrinter() {
+      const cfg = JSON.parse(localStorage.getItem('fnb_printer_cfg') || '{}');
+      if (cfg.storeName) document.getElementById('cfgStoreName').value = cfg.storeName;
+      if (cfg.storeAddress) document.getElementById('cfgStoreAddress').value = cfg.storeAddress;
+      if (cfg.storeFooter) document.getElementById('cfgStoreFooter').value = cfg.storeFooter;
+      if (cfg.paperWidth) document.getElementById('cfgPaperWidth').value = cfg.paperWidth;
+    }
+
+    function bukaSettingPrinter() { new bootstrap.Modal(document.getElementById('modalPrinter')).show(); }
+
+    function simpanSettingPrinter() {
+      const cfg = {
+        storeName: document.getElementById('cfgStoreName').value,
+        storeAddress: document.getElementById('cfgStoreAddress').value,
+        storeFooter: document.getElementById('cfgStoreFooter').value,
+        paperWidth: document.getElementById('cfgPaperWidth').value
+      };
+      localStorage.setItem('fnb_printer_cfg', JSON.stringify(cfg));
+      bootstrap.Modal.getInstance(document.getElementById('modalPrinter')).hide();
+      Swal.fire('Tersimpan', 'Pengaturan printer tersimpan.', 'success');
+    }
+
+    // 4. CETAK STRUK REGULER
+    function cetakStrukThermal(inv, tgl, items, sub, pb1, tot, bayarInfo, cashReceived, kembalian) {
+      const cfg = JSON.parse(localStorage.getItem('fnb_printer_cfg') || '{}');
+      const storeName = cfg.storeName || "RESTO NUSANTARA";
+      const storeAddress = cfg.storeAddress || "Jl. Protokol No. 10";
+      const footer = cfg.storeFooter || "Terima Kasih Atas Kunjungan Anda!";
+      const maxChars = Number(cfg.paperWidth) || 32;
+
+      if (btStrukChar) {
+        const encoder = new TextEncoder();
+        const INIT = [0x1B, 0x40], CENTER = [0x1B, 0x61, 0x01], LEFT = [0x1B, 0x61, 0x00], BOLD_ON = [0x1B, 0x45, 0x01], BOLD_OFF = [0x1B, 0x45, 0x00], FEED = [0x1B, 0x64, 0x03];
+        let cmds = [];
+        cmds.push(...INIT, ...CENTER, ...BOLD_ON, ...encoder.encode(storeName + "\n"), ...BOLD_OFF, ...encoder.encode(storeAddress + "\n"), ...encoder.encode("-".repeat(maxChars) + "\n"));
+        cmds.push(...LEFT, ...encoder.encode("No : " + inv + "\n"), ...encoder.encode("Tgl: " + tgl + "\n"), ...encoder.encode("Kas: " + (currentUser ? currentUser.nama : '-') + "\n"), ...encoder.encode("-".repeat(maxChars) + "\n"));
+        items.forEach(i => {
+          cmds.push(...encoder.encode(i.nama + "\n"), ...encoder.encode(formatLine(`${i.qty} x ${formatNumberOnly(i.harga)}`, formatNumberOnly(i.qty * i.harga), maxChars)));
+        });
+        cmds.push(...encoder.encode("-".repeat(maxChars) + "\n"), ...encoder.encode(formatLine("Subtotal", formatNumberOnly(sub), maxChars)), ...encoder.encode(formatLine("PB1 (10%)", formatNumberOnly(pb1), maxChars)), ...BOLD_ON, ...encoder.encode(formatLine("TOTAL", formatNumberOnly(tot), maxChars)), ...BOLD_OFF, ...encoder.encode("-".repeat(maxChars) + "\n"), ...encoder.encode(formatLine("Bayar", bayarInfo, maxChars)));
+        if (cashReceived && cashReceived > 0) {
+          cmds.push(...encoder.encode(formatLine("Diterima", formatNumberOnly(cashReceived), maxChars)), ...encoder.encode(formatLine("Kembali", formatNumberOnly(kembalian || 0), maxChars)));
+        }
+        cmds.push(...CENTER, ...encoder.encode("\n" + footer + "\n"), ...FEED);
+        kirimBytesKeChar(btStrukChar, new Uint8Array(cmds)).catch(() => {});
+      }
+    }
+
+    // 5. CETAK LABEL STIKER CUP PER ITEM
+    async function cetakLabelStiker(tgl, namaCust, items) {
+      if (!btLabelChar) return;
+
+      const encoder = new TextEncoder();
+      const INIT = [0x1B, 0x40], LEFT = [0x1B, 0x61, 0x00], BOLD_ON = [0x1B, 0x45, 0x01], BOLD_OFF = [0x1B, 0x45, 0x00], FEED = [0x1B, 0x64, 0x02];
+
+      for (const item of items) {
+        const qty = Number(item.qty) || 1;
+        for (let q = 1; q <= qty; q++) {
+          let cmds = [];
+          cmds.push(...INIT, ...LEFT, ...encoder.encode("--------------------------------\n"), ...encoder.encode("Tanggal : " + tgl + "\n"), ...BOLD_ON, ...encoder.encode("Nama    : " + namaCust + "\n"), ...encoder.encode("Produk  : " + item.nama + "\n"), ...BOLD_OFF, ...encoder.encode("Harga   : " + formatRp(item.harga) + "\n"), ...encoder.encode("--------------------------------\n"), ...FEED);
+          await kirimBytesKeChar(btLabelChar, new Uint8Array(cmds));
+          await new Promise(r => setTimeout(r, 150));
+        }
+      }
+    }
+
+    // 6. CETAK STRUK TUTUP SHIFT / EOD
+    function cetakStrukEOD(rep) {
+      const cfg = JSON.parse(localStorage.getItem('fnb_printer_cfg') || '{"paperWidth":"32"}');
+      const maxChars = Number(cfg.paperWidth) || 32;
+
+      if (btStrukChar) {
+        const encoder = new TextEncoder();
+        const INIT = [0x1B, 0x40], CENTER = [0x1B, 0x61, 0x01], LEFT = [0x1B, 0x61, 0x00], BOLD_ON = [0x1B, 0x45, 0x01], BOLD_OFF = [0x1B, 0x45, 0x00], FEED = [0x1B, 0x64, 0x03];
+        let cmds = [];
+        cmds.push(...INIT, ...LEFT, ...encoder.encode("OP : " + rep.operator + "\n"), ...encoder.encode("Sales Receipt : " + rep.salesReceipt + "\n"), ...encoder.encode("Total Customer : " + rep.totalCustomer + "\n"), ...encoder.encode("ReportNo : " + rep.reportNo + "\n"), ...encoder.encode("First Login : " + rep.firstLogin + "\n"), ...encoder.encode("Start : " + rep.start + "\n"), ...encoder.encode("End : " + rep.end + "\n"), ...encoder.encode("-".repeat(maxChars) + "\n"));
+
+        if (rep.categories) {
+          rep.categories.forEach(cat => {
+            cmds.push(...BOLD_ON, ...encoder.encode("Category:" + cat.name + "\n"), ...BOLD_OFF);
+            cat.items.forEach(itm => {
+              cmds.push(...encoder.encode(itm.nama.toUpperCase() + "\n"), ...encoder.encode(formatLine(`${formatNumberOnly(itm.harga)}   ${itm.qty}`, formatNumberOnly(itm.subtotal), maxChars)));
+            });
+            cmds.push(...BOLD_ON, ...encoder.encode(formatLine("Total", `${cat.totalQty}   ${formatNumberOnly(cat.totalSub)}`, maxChars)), ...BOLD_OFF, ...encoder.encode("-".repeat(maxChars) + "\n"));
+          });
+        }
+
+        cmds.push(...CENTER, ...BOLD_ON, ...encoder.encode("-------SUMMARY SALES-------\n"), ...LEFT, ...BOLD_OFF, ...encoder.encode(formatLine("ITEM SALES", formatNumberOnly(rep.itemSales), maxChars)), ...encoder.encode(formatLine("DISCOUNT BILL", `(${formatNumberOnly(rep.discountBill)})`, maxChars)), ...encoder.encode(formatLine("TAX", formatNumberOnly(rep.tax), maxChars)), ...encoder.encode(formatLine("PEMBULATAN", formatNumberOnly(rep.pembulatan), maxChars)), ...encoder.encode("-".repeat(maxChars) + "\n"), ...BOLD_ON, ...encoder.encode(formatLine("GROSS SALES", formatNumberOnly(rep.grossSales), maxChars)), ...encoder.encode(formatLine("OMSET", formatNumberOnly(rep.omset), maxChars)), ...BOLD_OFF, ...encoder.encode("-".repeat(maxChars) + "\n"));
+        cmds.push(...CENTER, ...BOLD_ON, ...encoder.encode("-----METHOD OF PAYMENT-----\n"), ...LEFT, ...BOLD_OFF);
+        if (rep.payments) rep.payments.forEach(p => { cmds.push(...encoder.encode(formatLine(p.name.toUpperCase(), formatNumberOnly(p.amount), maxChars))); });
+        cmds.push(...BOLD_ON, ...encoder.encode(formatLine("Total", formatNumberOnly(rep.grossSales), maxChars)), ...BOLD_OFF, ...encoder.encode("-".repeat(maxChars) + "\n"), ...CENTER, ...BOLD_ON, ...encoder.encode("------JENIS PEMESANAN------\n"), ...LEFT, ...BOLD_OFF, ...encoder.encode(formatLine("DINE IN", formatNumberOnly(rep.grossSales), maxChars)), ...BOLD_ON, ...encoder.encode(formatLine("Total", formatNumberOnly(rep.grossSales), maxChars)), ...BOLD_OFF, ...encoder.encode("-".repeat(maxChars) + "\n"), ...CENTER, ...BOLD_ON, ...encoder.encode("------------VOID-----------\n"), ...LEFT, ...BOLD_OFF, ...encoder.encode(formatLine("Void Bill", "0", maxChars)), ...encoder.encode(formatLine("Void Item", "0", maxChars)), ...BOLD_ON, ...encoder.encode(formatLine("Total", "0", maxChars)), ...BOLD_OFF, ...encoder.encode("-".repeat(maxChars) + "\n"), ...BOLD_ON, ...encoder.encode(formatLine("Total Omset", formatNumberOnly(rep.omset), maxChars)), ...BOLD_OFF, ...encoder.encode(formatLine("Total Qty Item Penjualan", String(rep.totalQty), maxChars)), ...BOLD_ON, ...encoder.encode(formatLine("Total Settlement Cash", formatNumberOnly(rep.totalSettlementCash), maxChars)), ...encoder.encode("-".repeat(maxChars) + "\n"), ...encoder.encode(formatLine("Jumlah Uang", formatNumberOnly(rep.jumlahUang), maxChars)));
+        const selText = rep.selisihUang >= 0 ? formatNumberOnly(rep.selisihUang) : '-' + formatNumberOnly(Math.abs(rep.selisihUang));
+        cmds.push(...encoder.encode(formatLine("Selisih Uang", selText, maxChars)), ...BOLD_OFF, ...FEED);
+        kirimBytesKeChar(btStrukChar, new Uint8Array(cmds)).catch(() => {});
+      }
+    }
+
+    // 7. POS LOGIC & TRANSAKSI
+    async function muatKatalogPOS() {
+      try {
+        masterMenu = await apiCall("getMenuData");
+        const grid = document.getElementById('gridMenu');
+        grid.innerHTML = '';
+        masterMenu.forEach(m => {
+          grid.innerHTML += `<div class="col-sm-6 col-md-4 card-pos-item" data-nama="${m.nama.toLowerCase()}"><div class="card card-menu p-3 shadow-sm h-100" onclick="tambahCart('${m.id}')"><span class="badge bg-light text-dark mb-1 align-self-start">${m.kategori}</span><h6 class="fw-bold mb-1">${m.nama}</h6><span class="text-primary fw-bold mt-auto">${formatRp(m.harga)}</span></div></div>`;
+        });
+      } catch (e) {}
+    }
+
+    function filterMenu() {
+      const q = document.getElementById('cariMenu').value.toLowerCase();
+      document.querySelectorAll('.card-pos-item').forEach(el => {
+        el.style.display = el.getAttribute('data-nama').includes(q) ? 'block' : 'none';
+      });
+    }
+
+    function tambahCart(id) {
+      if (currentUser && currentUser.role === 'kasir' && !currentShift) {
+        return Swal.fire('Perhatian', 'Shift belum dibuka. Klik "Input Kas Awal (BOD)" terlebih dahulu.', 'warning');
+      }
+      const item = masterMenu.find(m => m.id === id);
+      const row = keranjang.find(k => k.id === id);
+      if (row) row.qty++; else keranjang.push({ ...item, qty: 1 });
+      updateCartUI();
+    }
+
+    function kosongkanCart() {
+      keranjang = []; document.getElementById('inputNamaCustomer').value = ''; updateCartUI();
+    }
+
+    function updateCartUI() {
+      const list = document.getElementById('listKeranjang');
+      list.innerHTML = ''; let sub = 0;
+      keranjang.forEach(i => {
+        sub += i.harga * i.qty;
+        list.innerHTML += `<div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom"><div><b>${i.nama}</b><br><small class="text-muted">${formatRp(i.harga)} x ${i.qty}</small></div><div class="fw-bold">${formatRp(i.harga * i.qty)}</div></div>`;
+      });
+      const pb1 = Math.round(sub * 0.1);
+      document.getElementById('subtotalVal').innerText = formatRp(sub);
+      document.getElementById('pajakVal').innerText = formatRp(pb1);
+      document.getElementById('totalVal').innerText = formatRp(sub + pb1);
+      document.getElementById('btnCheckout').disabled = keranjang.length === 0 || (currentUser?.role === 'kasir' && !currentShift);
+    }
+
+    function bukaModalPembayaran() {
+      const sub = keranjang.reduce((a, b) => a + (b.harga * b.qty), 0);
+      const grandTotal = sub + Math.round(sub * 0.1);
+      document.getElementById('modalPayGrandTotal').innerText = formatRp(grandTotal);
+      document.getElementById('typeSingle').checked = true;
+      document.getElementById('smCash').checked = true;
+      togglePayType();
+      renderRekomendasiUang(grandTotal);
+      pilihNominalSaran(grandTotal);
+      new bootstrap.Modal(document.getElementById('modalPayment')).show();
+    }
+
+    function renderRekomendasiUang(total) {
+      const container = document.getElementById('containerSaranUang');
+      container.innerHTML = '';
+      if (total <= 0) return;
+      const saranSet = new Set();
+      saranSet.add(total);
+      [10000, 20000, 50000, 100000].forEach(denom => {
+        const ceilVal = Math.ceil(total / denom) * denom;
+        if (ceilVal > total) saranSet.add(ceilVal);
+      });
+      Array.from(saranSet).sort((a, b) => a - b).forEach(nominal => {
+        const isPas = (nominal === total);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = isPas ? 'btn btn-outline-success btn-suggestion' : 'btn btn-outline-primary btn-suggestion';
+        btn.innerHTML = isPas ? `<i class="bi bi-check-circle me-1"></i> Uang Pas (${formatRp(nominal)})` : formatRp(nominal);
+        btn.onclick = () => pilihNominalSaran(nominal);
+        container.appendChild(btn);
+      });
+    }
+
+    function pilihNominalSaran(nom) { document.getElementById('inputUangDiterima').value = nom; hitungKembalian(); }
+
+    function hitungKembalian() {
+      const sub = keranjang.reduce((a, b) => a + (b.harga * b.qty), 0);
+      const grandTotal = sub + Math.round(sub * 0.1);
+      const uangDiterima = Number(document.getElementById('inputUangDiterima').value) || 0;
+      const kembalian = uangDiterima - grandTotal;
+      const label = document.getElementById('labelKembalian');
+      const btnSubmit = document.getElementById('btnProsesBayarFinal');
+
+      if (uangDiterima < grandTotal) {
+        label.className = 'fw-bold mb-0 text-danger'; label.innerText = `Kurang ${formatRp(grandTotal - uangDiterima)}`;
+        btnSubmit.disabled = true;
+      } else {
+        label.className = 'fw-bold mb-0 text-success'; label.innerText = formatRp(kembalian);
+        btnSubmit.disabled = false;
+      }
+    }
+
+    function togglePayType() {
+      const isSplit = document.getElementById('typeSplit').checked;
+      document.getElementById('boxSinglePayment').style.display = isSplit ? 'none' : 'block';
+      document.getElementById('boxSplitPayment').style.display = isSplit ? 'block' : 'none';
+      if (isSplit) hitungSisaSplit(); else toggleCashInput();
+    }
+
+    function toggleCashInput() {
+      const isCash = document.getElementById('smCash').checked;
+      document.getElementById('sectionCashDetail').style.display = isCash ? 'block' : 'none';
+      if (isCash) hitungKembalian(); else document.getElementById('btnProsesBayarFinal').disabled = false;
+    }
+
+    function hitungSisaSplit() {
+      const sub = keranjang.reduce((a, b) => a + (b.harga * b.qty), 0);
+      const grandTotal = sub + Math.round(sub * 0.1);
+      const nom1 = Number(document.getElementById('splitNominal1').value) || 0;
+      const sisa = grandTotal - nom1;
+      document.getElementById('splitNominal2').value = sisa >= 0 ? sisa : 0;
+      const info = document.getElementById('splitStatusInfo');
+      const btnSubmit = document.getElementById('btnProsesBayarFinal');
+
+      if (nom1 <= 0 || nom1 >= grandTotal) {
+        info.innerHTML = '<span class="text-danger">Nominal 1 tidak valid.</span>'; btnSubmit.disabled = true;
+      } else {
+        info.innerHTML = `<span class="text-success">Pas: ${formatRp(nom1)} + ${formatRp(sisa)} = ${formatRp(grandTotal)}</span>`; btnSubmit.disabled = false;
+      }
+    }
+
+    async function eksekusiCheckoutFinal() {
+      const sub = keranjang.reduce((a, b) => a + (b.harga * b.qty), 0);
+      const hpp = keranjang.reduce((a, b) => a + (b.hpp * b.qty), 0);
+      const pb1 = Math.round(sub * 0.1);
+      const tot = sub + pb1;
+      const isSplit = document.getElementById('typeSplit').checked;
+      const namaCustomer = document.getElementById('inputNamaCustomer').value.trim() || "Pelanggan";
+
+      let metodeBayarText = '', nominalTunai = 0, nominalNonTunai = 0, cashReceived = 0, kembalian = 0;
+
+      if (!isSplit) {
+        const singleMethod = document.querySelector('input[name="singleMethod"]:checked').value;
+        metodeBayarText = singleMethod;
+        if (singleMethod === 'CASH') {
+          cashReceived = Number(document.getElementById('inputUangDiterima').value) || 0;
+          if (cashReceived < tot) return Swal.fire('Uang Kurang', 'Uang diterima kurang!', 'warning');
+          nominalTunai = tot; kembalian = cashReceived - tot;
+        } else { nominalNonTunai = tot; }
+      } else {
+        const m1 = document.getElementById('splitMetode1').value, n1 = Number(document.getElementById('splitNominal1').value) || 0;
+        const m2 = document.getElementById('splitMetode2').value, n2 = Number(document.getElementById('splitNominal2').value) || 0;
+        if (n1 <= 0 || n2 <= 0 || (n1 + n2 !== tot)) return Swal.fire('Split Tidak Valid', 'Pastikan total pas ' + formatRp(tot), 'warning');
+        metodeBayarText = `SPLIT (${m1}: ${formatRp(n1)} | ${m2}: ${formatRp(n2)})`;
+        if (m1 === 'CASH') nominalTunai += n1; else nominalNonTunai += n1;
+        if (m2 === 'CASH') nominalTunai += n2; else nominalNonTunai += n2;
+      }
+
+      const itemsSnapshot = keranjang.map(i => ({ id: i.id, nama: i.nama, kategori: i.kategori || "OTHER", qty: i.qty, harga: i.harga }));
+      const payload = {
+        metodeBayarText: metodeBayarText, nominalTunai: nominalTunai, nominalNonTunai: nominalNonTunai,
+        subtotal: sub, pajakPB1: pb1, totalBayar: tot, totalHPP: hpp,
+        idShift: currentShift ? currentShift.idShift : "", namaCustomer: namaCustomer, items: itemsSnapshot
+      };
+
+      bootstrap.Modal.getInstance(document.getElementById('modalPayment')).hide();
+      Swal.fire({ title: 'Memproses Penjualan...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+      try {
+        const res = await apiCall("simpanTransaksi", payload);
+        Swal.close();
+        kosongkanCart();
+
+        // 1. Cetak Struk ke Printer Struk Kasir
+        cetakStrukThermal(res.invoice, res.waktu, itemsSnapshot, sub, pb1, tot, metodeBayarText, cashReceived, kembalian);
+
+        // 2. Cetak Label Stiker Cup ke Printer PT-260
+        cetakLabelStiker(res.waktu, res.namaCustomer, itemsSnapshot);
+
+        Swal.fire({ icon: 'success', title: 'Transaksi Sukses', text: `Invoice: ${res.invoice}`, timer: 2000, showConfirmButton: false });
+      } catch (err) {
+        Swal.fire('Gagal Transaksi', err.message, 'error');
+      }
+    }
+
+    // 8. ADMIN DASHBOARD & REPORT
+    async function loadRealtimeData() {
+      try {
+        const res = await apiCall("getRealtimeDashboard");
+        document.getElementById('rtOmzet').innerText = formatRp(res.omzetHariIni);
+        document.getElementById('rtTunai').innerText = formatRp(res.tunaiHariIni);
+        document.getElementById('rtNonTunai').innerText = formatRp(res.nonTunaiHariIni);
+        document.getElementById('rtTrx').innerText = res.totalTrx;
+
+        const tbody = document.getElementById('listShiftAktif');
+        tbody.innerHTML = '';
+        if (res.activeShifts.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Tidak ada kasir bertugas.</td></tr>'; return; }
+        res.activeShifts.forEach(s => {
+          tbody.innerHTML += `<tr><td><code>${s.idShift}</code></td><td class="fw-bold">${s.kasir}</td><td>${s.jamBOD}</td><td>${formatRp(s.kasAwal)}</td><td><span class="badge bg-success">OPEN</span></td></tr>`;
+        });
+      } catch (e) {}
+    }
+
+    async function muatDataBahan() {
+      try {
+        const data = await apiCall("getBahanData");
+        const sel = document.getElementById('pilihBahan');
+        sel.innerHTML = '<option value="">-- Pilih Bahan --</option><option value="BARU">+ Tambah Bahan Baru</option>';
+        data.forEach(b => { sel.innerHTML += `<option value="${b.id}">${b.nama} (Stok: ${b.stok} ${b.satuan})</option>`; });
+      } catch (e) {}
+    }
+
+    function cekBahanBaru(v) { document.getElementById('boxBahanBaru').style.display = (v === 'BARU') ? 'block' : 'none'; }
+
+    async function submitBahanMasuk(e) {
+      e.preventDefault();
+      const val = document.getElementById('pilihBahan').value;
+      const payload = {
+        idBahan: val, namaBahan: val === 'BARU' ? document.getElementById('namaBahanBaru').value : '',
+        satuan: val === 'BARU' ? document.getElementById('satuanBahanBaru').value : '',
+        qty: document.getElementById('qtyBahan').value, totalBiaya: document.getElementById('biayaBahan').value,
+        metodeBayar: document.getElementById('metodeBayarBahan').value
+      };
+      Swal.fire({ title: 'Menyimpan...', didOpen: () => Swal.showLoading() });
+      await apiCall("catatBahanMasuk", payload);
+      Swal.fire('Berhasil', 'Stok bahan diperbarui.', 'success');
+      document.getElementById('formBahanMasuk').reset();
+      cekBahanBaru(''); muatDataBahan();
+    }
+
+    async function muatDaftarMenuKelola() {
+      try {
+        const menus = await apiCall("getMenuData");
+        const tbody = document.querySelector('#tableListMenu tbody');
+        tbody.innerHTML = '';
+        menus.forEach(m => {
+          const margin = Math.round(((m.harga - m.hpp) / m.harga) * 100);
+          tbody.innerHTML += `<tr><td><b>${m.nama}</b></td><td>${m.kategori}</td><td>${formatRp(m.harga)}</td><td>${formatRp(m.hpp)}</td><td><span class="badge bg-success">${margin}%</span></td></tr>`;
+        });
+      } catch (e) {}
+    }
+
+    async function submitMenuBaru(e) {
+      e.preventDefault();
+      const payload = { nama: document.getElementById('mNama').value, kategori: document.getElementById('mKategori').value, harga: document.getElementById('mHarga').value, hpp: document.getElementById('mHPP').value };
+      Swal.fire({ title: 'Menyimpan...', didOpen: () => Swal.showLoading() });
+      await apiCall("tambahMenu", payload);
+      Swal.fire('Berhasil', 'Menu baru tersimpan.', 'success');
+      document.getElementById('formMenu').reset();
+      muatDaftarMenuKelola(); muatKatalogPOS();
+    }
+
+    async function tarikLaporan() {
+      const s = document.getElementById('repStart').value, e = document.getElementById('repEnd').value;
+      Swal.fire({ title: 'Memuat Laporan...', didOpen: () => Swal.showLoading() });
+      try {
+        const res = await apiCall("getLaporanPenjualan", { start: s, end: e });
+        Swal.close();
+        currentReportData = res.data;
+        document.getElementById('sumOmzet').innerText = formatRp(res.summary.omzet || 0);
+        document.getElementById('sumHPP').innerText = formatRp(res.summary.hpp || 0);
+        document.getElementById('sumLaba').innerText = formatRp(res.summary.labaKotor || 0);
+        document.getElementById('sumPajak').innerText = formatRp(res.summary.pajak || 0);
+
+        const tbody = document.getElementById('bodyReport');
+        tbody.innerHTML = '';
+        if (res.data.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Tidak ada transaksi ditemukan.</td></tr>'; return; }
+        res.data.forEach(r => {
+          tbody.innerHTML += `<tr><td>${r.invoice}</td><td>${r.tanggal}</td><td>${r.metode}</td><td>${formatRp(r.subtotal)}</td><td>${formatRp(r.pajak)}</td><td class="fw-bold">${formatRp(r.total)}</td><td class="text-danger">${formatRp(r.hpp)}</td><td class="text-success fw-bold">${formatRp(r.labaKotor)}</td></tr>`;
+        });
+      } catch (err) { Swal.fire('Error', err.message, 'error'); }
+    }
+
+    function exportToExcel() {
+      if (!currentReportData.length) return Swal.fire('Data Kosong', 'Tampilkan laporan terlebih dahulu.', 'warning');
+      const ws = XLSX.utils.json_to_sheet(currentReportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Sales");
+      XLSX.writeFile(wb, `Sales_${document.getElementById('repStart').value}.xlsx`);
+    }
+
+    function exportToPDF() {
+      if (!currentReportData.length) return Swal.fire('Data Kosong', 'Tampilkan laporan terlebih dahulu.', 'warning');
+      html2pdf().from(document.getElementById('printArea')).set({ margin: 10, filename: `Laporan_Sales_${document.getElementById('repStart').value}.pdf`, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' } }).save();
+    }
+  </script>
+</body>
+</html>
