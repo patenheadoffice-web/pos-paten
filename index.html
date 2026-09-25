@@ -740,18 +740,31 @@
 
     // 5. CETAK LABEL STIKER CUP PER ITEM
     async function cetakLabelStiker(tgl, namaCust, items) {
-      if (!btLabelChar) return;
+      if (!btLabelChar) {
+        console.log("Printer label PT-260 belum terhubung.");
+        return;
+      }
 
       const encoder = new TextEncoder();
-      const INIT = [0x1B, 0x40], LEFT = [0x1B, 0x61, 0x00], BOLD_ON = [0x1B, 0x45, 0x01], BOLD_OFF = [0x1B, 0x45, 0x00], FEED = [0x1B, 0x64, 0x02];
 
       for (const item of items) {
         const qty = Number(item.qty) || 1;
         for (let q = 1; q <= qty; q++) {
-          let cmds = [];
-          cmds.push(...INIT, ...LEFT, ...encoder.encode("--------------------------------\n"), ...encoder.encode("Tanggal : " + tgl + "\n"), ...BOLD_ON, ...encoder.encode("Nama    : " + namaCust + "\n"), ...encoder.encode("Produk  : " + item.nama + "\n"), ...BOLD_OFF, ...encoder.encode("Harga   : " + formatRp(item.harga) + "\n"), ...encoder.encode("--------------------------------\n"), ...FEED);
-          await kirimBytesKeChar(btLabelChar, new Uint8Array(cmds));
-          await new Promise(r => setTimeout(r, 150));
+          // Format perintah TSPL standar untuk label stiker 40mm x 30mm
+          let tsplCommand = 
+            `SIZE 40 mm, 30 mm\r\n` +      // Ukuran stiker Anda
+            `GAP 2 mm, 0 mm\r\n` +          // Celah antar-stiker
+            `DIRECTION 1\r\n` +             // Arah cetak tegak
+            `CLS\r\n` +                     // Bersihkan buffer cetak
+            `TEXT 15,15,"2",0,1,1,"Tgl  : ${tgl}"\r\n` +
+            `TEXT 15,45,"3",0,1,1,"Nama : ${namaCust.substring(0, 15)}"\r\n` +
+            `TEXT 15,85,"3",0,1,1,"Menu : ${item.nama.substring(0, 16)}"\r\n` +
+            `TEXT 15,125,"2",0,1,1,"Harga: ${formatRp(item.harga)}"\r\n` +
+            `PRINT 1,1\r\n`;                // Perintah wajib agar motor mencetak 1 lembar
+
+          const bytes = encoder.encode(tsplCommand);
+          await kirimBytesKeChar(btLabelChar, bytes);
+          await new Promise(r => setTimeout(r, 250)); // Jeda antar-stiker
         }
       }
     }
